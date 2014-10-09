@@ -15,20 +15,19 @@ function fdd{T<:Number}(der::Int,order::Int,x::Vector{T},f::Vector{T})
 
     for n = 1:npts
         i1 = min(max(n,1),npts-order+1)
-        alpha = x[i1:i1+order-1]
         z = x[n]
 
         c[:]=zero(T)            # c(:,:) = 0
         c[1]=one(T)             # c(0,0) = 1
         c1 = one(T)             # c1 = 0
-        c4 = alpha[1]-z         # c4 = x(0)-z
+        c4 = x[i1]-z            # c4 = x(0)-z
         for i = 1:order-1       # i=1,n
             mn = min(i,der)     # mn = min(i,m)
             c2 = one(T)         # c2=1
             c5 = c4             # c5 = c4
-            c4 = alpha[i+1]-z   # c4 = x(i)-z
+            c4 = x[i1+i]-z      # c4 = x(i)-z
             for j = 0:i-1
-                c3 = alpha[i+1]-alpha[j+1] # x(i)-x(j)
+                c3 = x[i1+i]-x[i1+j] # x(i)-x(j)
                 c2 = c2*c3
                 if j == i-1
                     for k = mn:-1:1
