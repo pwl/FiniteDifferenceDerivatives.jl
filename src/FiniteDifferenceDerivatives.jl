@@ -1,53 +1,66 @@
 module FiniteDifferenceDerivatives
 
-using ArrayViews
+export fdd, fddcoeffs
 
-export fdd
-
-function fdd{T<:Number}(der::Int,order::Int,x::Vector{T},f::Vector{T})
+function fdd{T<:Number}(der::Int,order::Int,x::AbstractVector{T},f::AbstractVector{T})
     if order < der
         error("Order can not be smaller than der")
     end
 
-    npts  = length(x)
-    c = zeros(order,der+1)
-    df = zero(f)
+    npts = length(x)
+    c    = zeros(T,order,der+1)
+    df   = zero(f)
 
     for n = 1:npts
-        i1 = min(max(n,1),npts-order+1)
-        z = x[n]
+        i1 = int(min(max(1,(n-floor((order-1)/2))),npts-order+1))
+        x0 = x[n]
 
-        c[:]=zero(T)            # c(:,:) = 0
-        c[1]=one(T)             # c(0,0) = 1
-        c1 = one(T)             # c1 = 0
-        c4 = x[i1]-z            # c4 = x(0)-z
-        for i = 1:order-1       # i=1,n
-            mn = min(i,der)     # mn = min(i,m)
-            c2 = one(T)         # c2=1
-            c5 = c4             # c5 = c4
-            c4 = x[i1+i]-z      # c4 = x(i)-z
-            for j = 0:i-1
-                c3 = x[i1+i]-x[i1+j] # x(i)-x(j)
-                c2 = c2*c3
-                if j == i-1
-                    for k = mn:-1:1
-                        c[i+1,k+1] = c1*(k*c[i,k]-c5*c[i,k+1])/c2
-                    end
-                    c[i+1,1] = -c1*c5/c2*c[i,1]
-                end
-                for k = mn:-1:1
-                    c[j+1,k+1] = (c4*c[j+1,k+1]-k*c[j+1,k])/c3
-                end
-                c[j+1,1]*=c4/c3*c[j+1,1]
-            end
-            c1 = c2
-        end
+        fddcoeffs(c,der,x0,x[i1:i1+order-1])
 
         for j = 1:order
             df[n] += c[j,der+1]*f[i1+j-1]
         end
     end
     return df
+end
+
+function fddcoeffs{T<:Number}(c::Matrix{T},k::Int,x0::T,x::AbstractVector{T})
+    n = length(x)
+
+    if k >= n
+        error("length(x) must be larger than k")
+    end
+
+    if size(c,1) < n || size(c,2) < k+1
+        error("The size of c has to be at least $((n,k+1))")
+    end
+
+    c1 = one(T)
+    c4 = x[1] - x0
+    c[:] = zero(T)
+    c[1] = one(T)
+    for i=1:n-1
+        mn = min(i,k)
+        c2 = one(T)
+        c5 = c4
+        c4 = x[i+1] - x0
+        for j=0:i-1
+            c3 = x[i+1] - x[j+1]
+            c2 = c2*c3
+            if j==i-1
+                for s=mn:-1:1
+                    c[i+1,s+1] = c1*(s*c[i,s] - c5*c[i,s+1])/c2
+                end
+                c[i+1,1] = -c1*c5*c[i,1]/c2
+            end
+            for s=mn:-1:1
+                c[j+1,s+1] = (c4*c[j+1,s+1] - s*c[j+1,s])/c3
+            end
+            c[j+1,1] = c4*c[j+1,1]/c3
+        end
+        c1 = c2
+    end
+    return c
 end
 
 end # module
