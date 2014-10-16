@@ -1,5 +1,7 @@
 module FiniteDifferenceDerivatives
 
+using ArrayViews
+
 export fdd, fddcoeffs, fdd13
 
 function fdd{T<:Number}(der::Int,order::Int,x::AbstractVector{T},f::AbstractVector{T})
@@ -15,7 +17,7 @@ function fdd{T<:Number}(der::Int,order::Int,x::AbstractVector{T},f::AbstractVect
         i1 = int(min(max(1,(n-floor((order-1)/2))),npts-order+1))
         x0 = x[n]
 
-        fddcoeffs(c,der,x0,x[i1:i1+order-1])
+        fddcoeffs(c,der,x0,view(x,i1:i1+order-1))
 
         for j = 1:order
             df[n] += c[j,der+1]*f[i1+j-1]
@@ -41,6 +43,7 @@ function fddcoeffs{T<:Number}(c::Matrix{T},k::Int,x0::T,x::AbstractVector{T})
     c[1] = one(T)
     for i=1:n-1
         mn = min(i,k)
+        rng = mn:-1:1
         c2 = one(T)
         c5 = c4
         c4 = x[i+1] - x0
@@ -48,19 +51,18 @@ function fddcoeffs{T<:Number}(c::Matrix{T},k::Int,x0::T,x::AbstractVector{T})
             c3 = x[i+1] - x[j+1]
             c2 = c2*c3
             if j==i-1
-                for s=mn:-1:1
+                for s=rng
                     c[i+1,s+1] = c1*(s*c[i,s] - c5*c[i,s+1])/c2
                 end
                 c[i+1,1] = -c1*c5*c[i,1]/c2
             end
-            for s=mn:-1:1
+            for s=rng
                 c[j+1,s+1] = (c4*c[j+1,s+1] - s*c[j+1,s])/c3
             end
             c[j+1,1] = c4*c[j+1,1]/c3
         end
         c1 = c2
     end
-    return c
 end
 
 function fdd13{T<:Number}(x::AbstractVector{T},f::AbstractVector{T})
