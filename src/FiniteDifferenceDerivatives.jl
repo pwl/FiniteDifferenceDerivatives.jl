@@ -1,30 +1,6 @@
 module FiniteDifferenceDerivatives
 
-using ArrayViews
-
-export fdd, fddcoeffs, fdd13, fdd_inline
-
-function fdd{T<:Number}(der::Int,order::Int,x::AbstractVector{T},f::AbstractVector{T})
-    if order < der
-        error("Order can not be smaller than der")
-    end
-
-    npts = length(x)
-    c    = zeros(T,order,der+1)
-    df   = zero(f)
-
-    for n = 1:npts
-        i1 = int(min(max(1,(n-floor((order-1)/2))),npts-order+1))
-        x0 = x[n]
-
-        fddcoeffs(c,der,x0,view(x,i1:i1+order-1))
-
-        for j = 1:order
-            df[n] += c[j,der+1]*f[i1+j-1]
-        end
-    end
-    return df
-end
+export fdd!, fddcoeffs, fdd13!
 
 function fddcoeffs{T<:Number}(c::Matrix{T},k::Int,x0::T,x::AbstractVector{T})
     n = length(x)
@@ -66,19 +42,20 @@ function fddcoeffs{T<:Number}(c::Matrix{T},k::Int,x0::T,x::AbstractVector{T})
 end
 
 
-function fdd_inline{T<:Number}(der::Int,order::Int,x::AbstractVector{T},f::AbstractVector{T})
+function fdd!{T<:Number}(df::AbstractVector{T},der::Int,order::Int,x::AbstractVector{T},f::AbstractVector{T})
     if order < der
         error("Order can not be smaller than der")
     end
 
     npts = length(x)
     c    = zeros(T,order,der+1)
-    df   = zero(f)
 
     for N = 1:npts
         i1 = int(min(max(1,(N-floor((order-1)/2))),npts-order+1))
         x0 = x[N]
 
+        # essentially the following code is the contents of fddcoeffs
+        # inlined almost without a change
         c1 = one(T)
         c4 = x[i1] - x0
         c[:] = zero(T)
@@ -105,6 +82,8 @@ function fdd_inline{T<:Number}(der::Int,order::Int,x::AbstractVector{T},f::Abstr
             end
             c1 = c2
         end
+
+        df[N] = zero(T)
         for j = 1:order
             df[N] += c[j,der+1]*f[i1+j-1]
         end
@@ -113,11 +92,11 @@ function fdd_inline{T<:Number}(der::Int,order::Int,x::AbstractVector{T},f::Abstr
 end
 
 
-function fdd13{T<:Number}(x::AbstractVector{T},f::AbstractVector{T})
+function fdd13!{T<:Number}(df::AbstractVector{T},x::AbstractVector{T},f::AbstractVector{T})
     # first derivative of order = 2
     npts=length(x)
-    df = zero(f)
     for i = 1:npts
+        df[i] = zero(T)
         if i == 1
             df2=f[i+1]-f[i]
             df3=f[i+2]-f[i]
