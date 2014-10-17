@@ -63,31 +63,37 @@ function fdd!{T<:Number}(df::AbstractVector{T},der::Int,order::Int,x::AbstractVe
         c[1] = one(T)
         for i=1:order-1
             mn = min(i,der)
-            rng = mn:-1:1
             c2 = one(T)
             c5 = c4
-            c4 = x[i+N1] - x0
-            for j=0:i-1
-                c3 = x[i+N1] - x[j+N1]
+            @inbounds c4 = x[i+N1] - x0
+            j = zero(Int)
+            while j <= i-1
+                @inbounds c3 = x[i+N1] - x[j+N1]
                 c2 = c2*c3
-                if j==i-1
-                    for s=rng
-                        c[i+1,s+1] = c1*(s*c[i,s] - c5*c[i,s+1])/c2
+                if j == i-1
+                    s = mn
+                    while s >= 1
+                        @inbounds c[i+1,s+1] = c1*(s*c[i,s] - c5*c[i,s+1])/c2
+                        s-=1
                     end
-                    c[i+1,1] = -c1*c5*c[i,1]/c2
+                    @inbounds c[i+1,1] = -c1*c5*c[i,1]/c2
                 end
-                for s=rng
-                    c[j+1,s+1] = (c4*c[j+1,s+1] - s*c[j+1,s])/c3
+                s = mn
+                while s >= 1
+                    @inbounds c[j+1,s+1] = (c4*c[j+1,s+1] - s*c[j+1,s])/c3
+                    s-=1
                 end
-                c[j+1,1] = c4*c[j+1,1]/c3
+                @inbounds c[j+1,1] = c4*c[j+1,1]/c3
+                j+=1
             end
             c1 = c2
         end
 
-        df[N] = zero(T)
-        for j = 1:order
-            df[N] += c[j,der+1]*f[N1+j-1]
+        dfN = zero(T)
+        @simd for j = 1:order
+            @inbounds dfN += c[j,der+1]*f[N1+j-1]
         end
+        df[N] = dfN
     end
     return df
 end
