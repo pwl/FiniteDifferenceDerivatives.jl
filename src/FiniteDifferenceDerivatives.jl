@@ -51,13 +51,14 @@ function fdd!{T<:Number}(df::AbstractVector{T},der::Int,order::Int,x::AbstractVe
     c    = zeros(T,order,der+1)
 
     for N = 1:npts
-        i1 = int(min(max(1,(N-floor((order-1)/2))),npts-order+1))
+
+        N1 = min(max(1,N-div(order-1,2)),npts-order+1)
         x0 = x[N]
 
         # essentially the following code is the contents of fddcoeffs
         # inlined almost without a change
         c1 = one(T)
-        c4 = x[i1] - x0
+        c4 = x[N1] - x0
         c[:] = zero(T)
         c[1] = one(T)
         for i=1:order-1
@@ -65,9 +66,9 @@ function fdd!{T<:Number}(df::AbstractVector{T},der::Int,order::Int,x::AbstractVe
             rng = mn:-1:1
             c2 = one(T)
             c5 = c4
-            c4 = x[i+i1] - x0
+            c4 = x[i+N1] - x0
             for j=0:i-1
-                c3 = x[i+i1] - x[j+i1]
+                c3 = x[i+N1] - x[j+N1]
                 c2 = c2*c3
                 if j==i-1
                     for s=rng
@@ -85,7 +86,7 @@ function fdd!{T<:Number}(df::AbstractVector{T},der::Int,order::Int,x::AbstractVe
 
         df[N] = zero(T)
         for j = 1:order
-            df[N] += c[j,der+1]*f[i1+j-1]
+            df[N] += c[j,der+1]*f[N1+j-1]
         end
     end
     return df
