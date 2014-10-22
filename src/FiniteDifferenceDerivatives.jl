@@ -1,50 +1,30 @@
 module FiniteDifferenceDerivatives
 
-export fdd!, fddcoeffs, fdd13!
+export fdd!, fdd, fddmatrix
 
-function fddcoeffs{T<:Number}(c::Matrix{T},k::Int,x0::T,x::AbstractVector{T})
-    n = length(x)
 
-    if k >= n
-        error("length(x) must be larger than k")
+# returns a sparse matrix D such that D*u is a der-derivative of specified order
+function fddmatrix{T<:Number}(der::Int,order::Int,x::AbstractVector{T})
+    npts = length(x)
+    m = zeros(T,npts,npts)
+    f = eye(T,npts)
+    for i = 1:npts
+        m[:,i]=fdd(der,order,x,f[:,i])
     end
-
-    if size(c,1) < n || size(c,2) < k+1
-        error("The size of c has to be at least $((n,k+1))")
-    end
-
-    c1 = one(T)
-    c4 = x[1] - x0
-    c[:] = zero(T)
-    c[1] = one(T)
-    for i=1:n-1
-        mn = min(i,k)
-        rng = mn:-1:1
-        c2 = one(T)
-        c5 = c4
-        c4 = x[i+1] - x0
-        for j=0:i-1
-            c3 = x[i+1] - x[j+1]
-            c2 = c2*c3
-            if j==i-1
-                for s=rng
-                    c[i+1,s+1] = c1*(s*c[i,s] - c5*c[i,s+1])/c2
-                end
-                c[i+1,1] = -c1*c5*c[i,1]/c2
-            end
-            for s=rng
-                c[j+1,s+1] = (c4*c[j+1,s+1] - s*c[j+1,s])/c3
-            end
-            c[j+1,1] = c4*c[j+1,1]/c3
-        end
-        c1 = c2
-    end
+    return sparse(m)
 end
 
 
+# compute the der-derivative using order-point scheme
 function fdd!{T<:Number}(df::AbstractVector{T},der::Int,order::Int,x::AbstractVector{T},f::AbstractVector{T})
     if order < der
         error("Order can not be smaller than der")
+    end
+
+    # specialized implementation for lower orders
+    if der == 1 & order == 3
+        fdd13!(df,x,f)
+        return
     end
 
     npts = length(x)
@@ -95,37 +75,40 @@ function fdd!{T<:Number}(df::AbstractVector{T},der::Int,order::Int,x::AbstractVe
         end
         df[N] = dfN
     end
+end
+
+
+function fdd{T<:Number}(der::Int,order::Int,x::AbstractVector{T},f::AbstractVector{T})
+    df = zero(f)
+    fdd!(df,der,order,x,f)
     return df
 end
 
 
 function fdd13!{T<:Number}(df::AbstractVector{T},x::AbstractVector{T},f::AbstractVector{T})
-    # first derivative of order = 2
+    # first derivative using a three point stencil
     npts=length(x)
     for i = 1:npts
-        df[i] = zero(T)
         if i == 1
             df2=f[i+1]-f[i]
             df3=f[i+2]-f[i]
-             h2=x[i+1]-x[i]
-             h3=x[i+2]-x[i]
+            h2=x[i+1]-x[i]
+            h3=x[i+2]-x[i]
             df[i]=df2/h2 + (df3-df2)/(h2-h3) + df3/h3
         elseif i == npts
             df1=f[i-1]-f[i]
             df2=f[i-2]-f[i]
-             h1=x[i-1]-x[i]
-             h2=x[i-2]-x[i]
+            h1=x[i-1]-x[i]
+            h2=x[i-2]-x[i]
             df[i]=df1/h1 + (df2-df1)/(h1-h2) + df2/h2
         else
             df1=f[i-1]-f[i]
             df3=f[i+1]-f[i]
-             h1=x[i-1]-x[i]
-             h3=x[i+1]-x[i]
+            h1=x[i-1]-x[i]
+            h3=x[i+1]-x[i]
             df[i]=df1/h1 + (df3-df1)/(h1-h3) + df3/h3
         end
     end
-
-    return df
 end
 
 end # module
