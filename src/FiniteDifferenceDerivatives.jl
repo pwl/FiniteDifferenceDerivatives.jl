@@ -17,8 +17,11 @@ end
 
 # compute the der-derivative using order-point scheme
 function fdd!{T<:Number}(df::AbstractVector{T},der::Int,order::Int,x::AbstractVector{T},f::AbstractVector{T})
+    npts = length(x)
     if order < der
         error("Order can not be smaller than der")
+    elseif npts < order
+        error("Number of mesh points shouldn't be smaller than order")
     end
 
     # specialized implementation for lower orders
@@ -27,7 +30,6 @@ function fdd!{T<:Number}(df::AbstractVector{T},der::Int,order::Int,x::AbstractVe
         return
     end
 
-    npts = length(x)
     c    = zeros(T,order,der+1)
 
     for N = 1:npts
