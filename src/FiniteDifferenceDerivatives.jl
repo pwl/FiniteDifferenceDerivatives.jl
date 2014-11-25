@@ -1,22 +1,24 @@
 module FiniteDifferenceDerivatives
 
+using ArrayViews
+
 export fdd!, fdd, fddmatrix, fddat
 
 
 # returns a sparse matrix D such that D*u is a der-derivative of specified order
-function fddmatrix{T<:Number}(der::Int,order::Int,x::AbstractVector{T})
+function fddmatrix{T<:Number}(x::AbstractVector{T},der::Int,order::Int)
     npts = length(x)
     m = zeros(T,npts,npts)
     f = eye(T,npts)
     for i = 1:npts
-        m[:,i]=fdd(der,order,x,f[:,i])
+        m[:,i]=fdd(f[:,i],x,der,order)
     end
     return sparse(m)
 end
 
 
 # compute the der-derivative using order-point scheme
-function fdd!{T<:Number}(df::AbstractVector{T},der::Int,order::Int,x::AbstractVector{T},f::AbstractVector{T})
+function fdd!{T<:Number}(df::AbstractVector{T},f::AbstractVector{T},x::AbstractVector{T},der::Int,order::Int)
     npts = length(x)
     if order < der
         error("Order can not be smaller than der")
@@ -25,36 +27,31 @@ function fdd!{T<:Number}(df::AbstractVector{T},der::Int,order::Int,x::AbstractVe
     end
 
     # specialized implementation for lower orders
-    if der == 1 & order == 3
-        fdd13!(df,x,f)
-        return
-    end
+    if der == 1 && order == 3
+        fdd13!(df,f,x)
+    else
+        # proceed with general implementation
 
-    c = Array(T,order,der+1)
+        c = Array(T,order,der+1)
 
-    for N = 1:npts
-
-        N1 = min(max(1,N-div(order-1,2)),npts-order+1)
-
-        generatec!(c,x[N],x,N1)
-
-        dfN = zero(T)
-        @simd for j = 1:order
-            @inbounds dfN += c[j,der+1]*f[N1+j-1]
+        for N = 1:npts
+            # N1 is the leftmost point of the stencil
+            N1    = min(max(1,N-div(order-1,2)),npts-order+1)
+            df[N] = fddcore(f,x,der,x[N],N1,order,c)
         end
-        df[N] = dfN
     end
+
 end
 
 
-function fdd{T<:Number}(der::Int,order::Int,x::AbstractVector{T},f::AbstractVector{T})
-    df = zero(f)
-    fdd!(df,der,order,x,f)
+function fdd{T<:Number}(f::AbstractVector{T},x::AbstractVector{T},der::Int,order::Int)
+    df = Array(T,length(f))
+    fdd!(df,f,x,der,order)
     return df
 end
 
 
-function fdd13!{T<:Number}(df::AbstractVector{T},x::AbstractVector{T},f::AbstractVector{T})
+function fdd13!{T<:Number}(df::AbstractVector{T},f::AbstractVector{T},x::AbstractVector{T})
     # first derivative using a three point stencil
     npts=length(x)
     for i = 1:npts
@@ -81,36 +78,50 @@ function fdd13!{T<:Number}(df::AbstractVector{T},x::AbstractVector{T},f::Abstrac
 end
 
 
-function fddat{T<:Number}(f::Vector{T},x::Vector{T},der::Int,x0::Real)
-    order = length(x)
+function fddcore{T<:Number}(f::AbstractVector{T},
+                            x::AbstractVector{T},
+                            der::Int,
+                            x0::Real,
+                            N1::Int,
+                            order::Int,
+                            c::Matrix{T})
 
-    if order != length(f)
-        error("x and f should have the same length")
-    end
-
-    N1 = 1
-    c  = Array(T,order,der+1)
     generatec!(c,x0,x,N1)
 
     dfN = zero(T)
     @simd for j = 1:order
-        @inbounds dfN += c[j,der+1]*f[N1+j-1]
+        @inbounds dfN += c[j,der+1]*f[N1-1+j]
     end
     return dfN
 end
 
+function fddat{T<:Number}(f::AbstractVector{T},
+                          x::AbstractVector{T},
+                          der::Int,
+                          x0::Real)
 
-# generate the coefficients c
-function generatec!{T}(c::Matrix{T},x0::Real,x::Vector{T},N1::Int)
-    if N1 < 1 | N1 > length(x)
-        error("N1 is out of bounds")
+    if length(f) != length(x)
+        error("x and f must have the same size")
     end
 
+    N1 = 1
+    order = length(x)
+    c = Array(T,order,der+1)
+    return fddcore(f,x,der,x0,N1,order,c)
+end
+
+
+# generate the coefficients c
+function generatec!{T}(c::Matrix{T},x0::Real,x::AbstractVector{T},N1::Int)
     order = size(c,1)
     der   = size(c,2)-1
 
+    if N1 < 1 || N1+order-1 > length(x)
+        error("N1=$N1 and order=$order are out of bounds")
+    end
+
     c1 = one(T)
-    c4 = x[N1] - x0
+    @inbounds c4 = x[N1] - x0
     c[:] = zero(T)
     c[1] = one(T)
     for i=1:order-1
@@ -118,7 +129,7 @@ function generatec!{T}(c::Matrix{T},x0::Real,x::Vector{T},N1::Int)
         c2 = one(T)
         c5 = c4
         @inbounds c4 = x[i+N1] - x0
-        j = zero(Int)
+        j = 0
         while j <= i-1
             @inbounds c3 = x[i+N1] - x[j+N1]
             c2 = c2*c3
@@ -141,5 +152,6 @@ function generatec!{T}(c::Matrix{T},x0::Real,x::Vector{T},N1::Int)
         c1 = c2
     end
 end
+
 
 end # module
