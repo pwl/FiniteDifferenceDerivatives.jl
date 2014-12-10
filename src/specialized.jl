@@ -24,6 +24,21 @@ function fdd13!{T<:Number}(df::AbstractVector{T},f::AbstractVector{T},x::Abstrac
     end
 end
 
+function fdd23!{T<:Number}(df::AbstractVector{T},f::AbstractVector{T},x::AbstractVector{T})
+    # first derivative using a three point stencil
+    npts=length(x)
+    for i = 1:npts
+        if i == 1
+            df[i] = 2((f[i+2]-f[i+1])/(x[i+2]-x[i+1])-(f[i+1]-f[i])/(x[i+1]-x[i]))/(x[i+2]-x[i])
+        elseif i == npts
+            df[i] = 2((f[i]-f[i-1])/(x[i]-x[i-1])-(f[i-1]-f[i-2])/(x[i-1]-x[i-2]))/(x[i]-x[i-2])
+        else
+            df[i] = 2((f[i+1]-f[i])/(x[i+1]-x[i])-(f[i]-f[i-1])/(x[i]-x[i-1]))/(x[i+1]-x[i-1])
+        end
+    end
+end
+
+
 function fdd1n!{T<:Number}(df::AbstractVector{T},f::AbstractVector{T},x::AbstractVector{T},order)
     # first derivative using a three point stencil
     npts=length(x)

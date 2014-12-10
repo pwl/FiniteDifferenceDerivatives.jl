@@ -31,6 +31,8 @@ function fdd!{T<:Number}(df::AbstractVector{T},f::AbstractVector{T},x::AbstractV
     # specialized implementation for lower orders
     if der == 1 && order == 3
         fdd13!(df,f,x)
+    elseif der == 2 && order == 3
+        fdd23!(df,f,x)
     elseif der == 1
         fdd1n!(df,f,x,order)
     else
