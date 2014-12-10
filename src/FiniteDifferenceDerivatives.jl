@@ -2,6 +2,8 @@ module FiniteDifferenceDerivatives
 
 using ArrayViews
 
+include("specialized.jl")
+
 export fdd!, fdd, fddmatrix, fddat
 
 
@@ -29,6 +31,8 @@ function fdd!{T<:Number}(df::AbstractVector{T},f::AbstractVector{T},x::AbstractV
     # specialized implementation for lower orders
     if der == 1 && order == 3
         fdd13!(df,f,x)
+    elseif der == 1
+        fdd1n!(df,f,x,order)
     else
         # proceed with general implementation
 
@@ -48,33 +52,6 @@ function fdd{T<:Number}(f::AbstractVector{T},x::AbstractVector{T},der::Int,order
     df = Array(T,length(f))
     fdd!(df,f,x,der,order)
     return df
-end
-
-
-function fdd13!{T<:Number}(df::AbstractVector{T},f::AbstractVector{T},x::AbstractVector{T})
-    # first derivative using a three point stencil
-    npts=length(x)
-    for i = 1:npts
-        if i == 1
-            df2=f[i+1]-f[i]
-            df3=f[i+2]-f[i]
-            h2=x[i+1]-x[i]
-            h3=x[i+2]-x[i]
-            df[i]=df2/h2 + (df3-df2)/(h2-h3) + df3/h3
-        elseif i == npts
-            df1=f[i-1]-f[i]
-            df2=f[i-2]-f[i]
-            h1=x[i-1]-x[i]
-            h2=x[i-2]-x[i]
-            df[i]=df1/h1 + (df2-df1)/(h1-h2) + df2/h2
-        else
-            df1=f[i-1]-f[i]
-            df3=f[i+1]-f[i]
-            h1=x[i-1]-x[i]
-            h3=x[i+1]-x[i]
-            df[i]=df1/h1 + (df3-df1)/(h1-h3) + df3/h3
-        end
-    end
 end
 
 
